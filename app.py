@@ -11,7 +11,7 @@ st.title("Simple Process Model")
 
 # =========================================================
 # 1. PERFORMANCE BENCHMARKS
-# =========================================================
+# =========================================================  
 
 st.header("Performance Benchmarks")
 
@@ -1109,11 +1109,11 @@ def modelPrimary(
     output_stream.loc[
         0,
         "TSS"
-    ] *= 0.8
+    ] *= 1
 
 
     # For now:
-    # 20% removal of COD fractions
+    # 0% removal of COD fractions
 
     for cod_fraction in (
         cod_fraction_analytes
@@ -1122,7 +1122,7 @@ def modelPrimary(
         output_stream.loc[
             0,
             cod_fraction
-        ] *= 0.8
+        ] *= 1
 
 
     # Recalculate derived COD
