@@ -15,10 +15,9 @@ st.title("Simple Process Model")
 
 st.header("Performance Benchmarks")
 
-# Internal nested dictionary structure
-# Values are placeholders for prototype development
 
 default_performance_benchmarks = {
+
     "Primary": {
         "SOR (m/hr)": 1.0
     },
@@ -34,7 +33,7 @@ default_performance_benchmarks = {
 }
 
 
-# Convert dictionary to simple editable table
+# Convert nested dictionary to editable DataFrame
 
 benchmark_rows = []
 
@@ -57,12 +56,15 @@ benchmark_data = st.data_editor(
     hide_index=True,
     width="stretch",
     column_config={
+
         "System Type": st.column_config.TextColumn(
             disabled=True
         ),
+
         "Criterion": st.column_config.TextColumn(
             disabled=True
         ),
+
         "Benchmark": st.column_config.NumberColumn(
             min_value=0.0
         )
@@ -71,7 +73,7 @@ benchmark_data = st.data_editor(
 )
 
 
-# Rebuild nested dictionary after user editing
+# Convert edited DataFrame back to nested dictionary
 
 performance_benchmarks = {}
 
@@ -93,17 +95,34 @@ for index, row in benchmark_data.iterrows():
 
 st.header("Modelling Constants")
 
+
 default_modelling_constants = {
+
+    # Heterotrophic yield
     "Yh": 0.45,
+
+    # Heterotrophic endogenous decay rate (/day)
     "bH": 0.24,
+
+    # Endogenous residue fraction
     "fh": 0.20,
-    "fcv": 1.48
+
+    # COD / VSS conversion
+    "fcv": 1.48,
+
+    # Inert/inorganic solids generated relative
+    # to live biomass inventory
+    "f_inert_biomass": 0.15
 }
 
 
 constants_data = pd.DataFrame({
-    "Constant": list(default_modelling_constants.keys()),
-    "Value": list(default_modelling_constants.values())
+
+    "Constant":
+        list(default_modelling_constants.keys()),
+
+    "Value":
+        list(default_modelling_constants.values())
 })
 
 
@@ -112,9 +131,11 @@ constants_data = st.data_editor(
     hide_index=True,
     width="stretch",
     column_config={
+
         "Constant": st.column_config.TextColumn(
             disabled=True
         ),
+
         "Value": st.column_config.NumberColumn(
             min_value=0.0
         )
@@ -123,13 +144,15 @@ constants_data = st.data_editor(
 )
 
 
-# Convert editable table back to dictionary
+# Convert editable constants table back to dictionary
 
 modelling_constants = {}
 
 for index, row in constants_data.iterrows():
 
-    modelling_constants[row["Constant"]] = row["Value"]
+    modelling_constants[
+        row["Constant"]
+    ] = row["Value"]
 
 
 # =========================================================
@@ -138,13 +161,6 @@ for index, row in constants_data.iterrows():
 
 st.header("Influent Sources")
 
-
-# We enter the FOUR fundamental COD fractions.
-#
-# Biodegradable COD,
-# Non-biodegradable COD,
-# and Total COD
-# will be calculated from these.
 
 default_source_data = pd.DataFrame({
 
@@ -162,6 +178,7 @@ default_source_data = pd.DataFrame({
         False
     ],
 
+    # ML/day
     "Flow": [
         10.0,
         10.0,
@@ -169,9 +186,17 @@ default_source_data = pd.DataFrame({
         0.0
     ],
 
+    # mg/L
     "TSS": [
         200.0,
         100.0,
+        0.0,
+        0.0
+    ],
+
+    "ISS": [
+        40.0,
+        30.0,
         0.0,
         0.0
     ],
@@ -251,23 +276,29 @@ source_data = st.data_editor(
 
 
 # =========================================================
-# 4. CALCULATE DERIVED COD COLUMNS
+# 4. DERIVED COD COLUMNS
 # =========================================================
 
 source_data["Biodegradable COD"] = (
+
     source_data["Soluble biodegradable COD"]
+
     + source_data["Particulate biodegradable COD"]
 )
 
 
 source_data["Non-biodegradable COD"] = (
+
     source_data["Soluble non-biodegradable COD"]
+
     + source_data["Particulate non-biodegradable COD"]
 )
 
 
 source_data["Total COD"] = (
+
     source_data["Biodegradable COD"]
+
     + source_data["Non-biodegradable COD"]
 )
 
@@ -348,12 +379,15 @@ primary_data = st.data_editor(
 )
 
 
-# Make sure dynamically-added rows get the right backend values
+# Ensure backend fields are populated even for new rows
 
 primary_data["Type"] = "Primary"
+
 primary_data["Modelling Order Group"] = 1
-primary_data["Modelling Order Specific"] = (
-    range(1, len(primary_data) + 1)
+
+primary_data["Modelling Order Specific"] = range(
+    1,
+    len(primary_data) + 1
 )
 
 
@@ -408,6 +442,7 @@ default_secondary_data = pd.DataFrame({
         "Conventional"
     ],
 
+    # m3
     "Volume": [
         5000.0,
         5000.0,
@@ -415,6 +450,7 @@ default_secondary_data = pd.DataFrame({
         5000.0
     ],
 
+    # days
     "SRT": [
         15.0,
         15.0,
@@ -438,12 +474,14 @@ secondary_data = st.data_editor(
 
         "Modelling Order Specific": None,
 
-        "Secondary Type": st.column_config.SelectboxColumn(
-            options=[
-                "Conventional",
-                "MBR"
-            ]
-        )
+        "Secondary Type":
+            st.column_config.SelectboxColumn(
+
+                options=[
+                    "Conventional",
+                    "MBR"
+                ]
+            )
     },
 
     key="secondary_editor"
@@ -451,9 +489,16 @@ secondary_data = st.data_editor(
 
 
 secondary_data["Type"] = "Secondary"
-secondary_data["Modelling Order Group"] = 2
-secondary_data["Modelling Order Specific"] = (
-    range(1, len(secondary_data) + 1)
+
+secondary_data[
+    "Modelling Order Group"
+] = 2
+
+secondary_data[
+    "Modelling Order Specific"
+] = range(
+    1,
+    len(secondary_data) + 1
 )
 
 
@@ -494,8 +539,14 @@ default_tertiary_data = pd.DataFrame({
         3
     ],
 
-    # Placeholder attribute for future filtration assessment
+    "Modelling Order Specific": [
+        1,
+        2,
+        3,
+        4
+    ],
 
+    # Placeholder for filtration modelling
     "Filter Area": [
         100.0,
         100.0,
@@ -513,7 +564,8 @@ tertiary_data = st.data_editor(
 
     column_config={
         "Type": None,
-        "Modelling Order Group": None
+        "Modelling Order Group": None,
+        "Modelling Order Specific": None
     },
 
     key="tertiary_editor"
@@ -521,9 +573,16 @@ tertiary_data = st.data_editor(
 
 
 tertiary_data["Type"] = "Tertiary"
-tertiary_data["Modelling Order Group"] = 3
-tertiary_data["Modelling Order Specific"] = (
-    range(1, len(tertiary_data) + 1)
+
+tertiary_data[
+    "Modelling Order Group"
+] = 3
+
+tertiary_data[
+    "Modelling Order Specific"
+] = range(
+    1,
+    len(tertiary_data) + 1
 )
 
 
@@ -532,21 +591,28 @@ tertiary_data["Modelling Order Specific"] = (
 # =========================================================
 
 systems = pd.concat(
+
     [
         primary_data,
         secondary_data,
         tertiary_data
     ],
+
     ignore_index=True
 )
 
+
+# Active systems only
 
 systems = systems[
     systems["Active"] == True
 ].copy()
 
 
+# Put them into modelling order
+
 ordered_systems = systems.sort_values(
+
     by=[
         "Modelling Order Group",
         "Modelling Order Specific"
@@ -599,9 +665,11 @@ pathways = st.data_editor(
 cod_fraction_analytes = [
 
     "Soluble biodegradable COD",
+
     "Particulate biodegradable COD",
 
     "Soluble non-biodegradable COD",
+
     "Particulate non-biodegradable COD"
 ]
 
@@ -609,7 +677,9 @@ cod_fraction_analytes = [
 derived_cod_analytes = [
 
     "Biodegradable COD",
+
     "Non-biodegradable COD",
+
     "Total COD"
 ]
 
@@ -617,29 +687,41 @@ derived_cod_analytes = [
 other_analytes = [
 
     "TSS",
+
+    "ISS",
+
     "TN",
+
     "TP",
+
     "NH4",
+
     "NO3",
+
     "PO4"
 ]
 
 
 analytes = (
+
     other_analytes
+
     + cod_fraction_analytes
+
     + derived_cod_analytes
 )
 
 
 # =========================================================
-# 11. CREATE COMMON NODES DATAFRAME
+# 11. COMMON NODES DATAFRAME
 # =========================================================
 
 node_columns = [
 
     "Type",
+
     "Active",
+
     "Flow"
 
 ] + analytes
@@ -656,51 +738,81 @@ nodes = pd.DataFrame(
 
 for index, row in source_data.iterrows():
 
-    if row["Active"]:
+    if row["Active"] == True:
 
         source_name = row["Name"]
 
         nodes.loc[source_name] = {
 
-            "Type": "Influent Source",
+            "Type":
+                "Influent Source",
 
-            "Active": True,
+            "Active":
+                True,
 
-            "Flow": row["Flow"],
+            "Flow":
+                row["Flow"],
 
-            "TSS": row["TSS"],
-            "TN": row["TN"],
-            "TP": row["TP"],
+            "TSS":
+                row["TSS"],
 
-            "NH4": row["NH4"],
-            "NO3": row["NO3"],
-            "PO4": row["PO4"],
+            "ISS":
+                row["ISS"],
+
+            "TN":
+                row["TN"],
+
+            "TP":
+                row["TP"],
+
+            "NH4":
+                row["NH4"],
+
+            "NO3":
+                row["NO3"],
+
+            "PO4":
+                row["PO4"],
 
             "Soluble biodegradable COD":
-                row["Soluble biodegradable COD"],
+                row[
+                    "Soluble biodegradable COD"
+                ],
 
             "Particulate biodegradable COD":
-                row["Particulate biodegradable COD"],
+                row[
+                    "Particulate biodegradable COD"
+                ],
 
             "Soluble non-biodegradable COD":
-                row["Soluble non-biodegradable COD"],
+                row[
+                    "Soluble non-biodegradable COD"
+                ],
 
             "Particulate non-biodegradable COD":
-                row["Particulate non-biodegradable COD"],
+                row[
+                    "Particulate non-biodegradable COD"
+                ],
 
             "Biodegradable COD":
-                row["Biodegradable COD"],
+                row[
+                    "Biodegradable COD"
+                ],
 
             "Non-biodegradable COD":
-                row["Non-biodegradable COD"],
+                row[
+                    "Non-biodegradable COD"
+                ],
 
             "Total COD":
-                row["Total COD"]
+                row[
+                    "Total COD"
+                ]
         }
 
 
 # ---------------------------------------------------------
-# ADD SYSTEM NODES
+# ADD ACTIVE SYSTEM NODES
 # ---------------------------------------------------------
 
 for index, row in ordered_systems.iterrows():
@@ -709,11 +821,14 @@ for index, row in ordered_systems.iterrows():
 
     nodes.loc[system_name] = {
 
-        "Type": row["Type"],
+        "Type":
+            row["Type"],
 
-        "Active": True,
+        "Active":
+            True,
 
-        "Flow": 0.0,
+        "Flow":
+            0.0,
 
         **{
             analyte: 0.0
@@ -723,18 +838,24 @@ for index, row in ordered_systems.iterrows():
 
 
 # =========================================================
-# 12. PERFORMANCE RESULTS DATAFRAMES
+# 12. PERFORMANCE RESULT DATAFRAMES
 # =========================================================
 
-df_primary_performance_results = pd.DataFrame()
+df_primary_performance_results = (
+    pd.DataFrame()
+)
 
-df_secondary_performance_results = pd.DataFrame()
+df_secondary_performance_results = (
+    pd.DataFrame()
+)
 
-df_tertiary_performance_results = pd.DataFrame()
+df_tertiary_performance_results = (
+    pd.DataFrame()
+)
 
 
 # =========================================================
-# 13. PERFORMANCE CLASSIFICATION FUNCTION
+# 13. PERFORMANCE CLASSIFICATION
 # =========================================================
 
 def classifyPerformance(
@@ -749,7 +870,9 @@ def classifyPerformance(
 
             return "FAIL"
 
-        elif actual_value >= 0.9 * benchmark:
+        elif actual_value >= (
+            0.9 * benchmark
+        ):
 
             return "CRITICAL"
 
@@ -763,7 +886,9 @@ def classifyPerformance(
 
             return "FAIL"
 
-        elif actual_value <= 1.1 * benchmark:
+        elif actual_value <= (
+            1.1 * benchmark
+        ):
 
             return "CRITICAL"
 
@@ -773,7 +898,7 @@ def classifyPerformance(
 
 
 # =========================================================
-# 14. COMBINE STREAMS ENTERING A SYSTEM
+# 14. COMBINE STREAMS ENTERING SYSTEM
 # =========================================================
 
 def calcCombinedStreamToSystem(
@@ -783,33 +908,47 @@ def calcCombinedStreamToSystem(
     analytes
 ):
 
-    # Find pathways entering current system
+    # Find pathways entering system
 
     incoming_pathways = pathways[
-        pathways["Destination"] == system_name
+
+        pathways["Destination"]
+        == system_name
+
     ].copy()
 
 
-    # Join upstream-node output data onto pathways
+    # Attach upstream-node output values
 
-    incoming_streams = incoming_pathways.merge(
-        nodes,
-        left_on="Source",
-        right_index=True,
-        how="left"
+    incoming_streams = (
+        incoming_pathways.merge(
+
+            nodes,
+
+            left_on="Source",
+
+            right_index=True,
+
+            how="left"
+        )
     )
 
 
-    # Ignore pathways referencing inactive/non-existing nodes
+    # Remove pathways whose source
+    # doesn't currently exist
 
-    incoming_streams = incoming_streams.dropna(
-        subset=["Flow"]
+    incoming_streams = (
+        incoming_streams.dropna(
+            subset=["Flow"]
+        )
     )
 
 
-    # Apply pathway split proportion
+    # Apply pathway proportion
 
-    incoming_streams["Adjusted Flow"] = (
+    incoming_streams[
+        "Adjusted Flow"
+    ] = (
 
         incoming_streams["Flow"]
 
@@ -817,11 +956,13 @@ def calcCombinedStreamToSystem(
     )
 
 
-    # Total flow to system
+    # Combined flow
 
     total_flow = (
-        incoming_streams["Adjusted Flow"]
-        .sum()
+
+        incoming_streams[
+            "Adjusted Flow"
+        ].sum()
     )
 
 
@@ -831,10 +972,16 @@ def calcCombinedStreamToSystem(
 
         weighted_concentrations = (
 
-            incoming_streams[analytes]
+            incoming_streams[
+                analytes
+            ]
 
             .multiply(
-                incoming_streams["Adjusted Flow"],
+
+                incoming_streams[
+                    "Adjusted Flow"
+                ],
+
                 axis=0
             )
 
@@ -845,9 +992,11 @@ def calcCombinedStreamToSystem(
 
     else:
 
-        weighted_concentrations = pd.Series(
-            0.0,
-            index=analytes
+        weighted_concentrations = (
+            pd.Series(
+                0.0,
+                index=analytes
+            )
         )
 
 
@@ -860,8 +1009,11 @@ def calcCombinedStreamToSystem(
 
 
     combined_input_stream.insert(
+
         0,
+
         "Flow",
+
         total_flow
     )
 
@@ -880,19 +1032,24 @@ def modelPrimary(
     modelling_constants
 ):
 
+
     # -----------------------------------------------------
-    # SYSTEM DESIGN
+    # DESIGN
     # -----------------------------------------------------
 
-    length = system_data["Length"]
+    length = system_data[
+        "Length"
+    ]
 
-    width = system_data["Width"]
+    width = system_data[
+        "Width"
+    ]
 
     area = length * width
 
 
     # -----------------------------------------------------
-    # HYDRAULIC PERFORMANCE
+    # HYDRAULICS
     # -----------------------------------------------------
 
     flow = combined_input_stream.loc[
@@ -904,9 +1061,13 @@ def modelPrimary(
     if area > 0:
 
         sor = (
+
             flow
+
             * 1000
+
             / 24
+
             / area
         )
 
@@ -916,6 +1077,7 @@ def modelPrimary(
 
 
     benchmark_sor = (
+
         performance_benchmarks
         ["Primary"]
         ["SOR (m/hr)"]
@@ -923,17 +1085,22 @@ def modelPrimary(
 
 
     status = classifyPerformance(
+
         sor,
+
         benchmark_sor,
+
         lower_is_better=True
     )
 
 
     # -----------------------------------------------------
-    # PROCESS STREAM IMPACT
+    # PROCESS STREAM
     # -----------------------------------------------------
 
-    output_stream = combined_input_stream.copy()
+    output_stream = (
+        combined_input_stream.copy()
+    )
 
 
     # Placeholder:
@@ -945,10 +1112,12 @@ def modelPrimary(
     ] *= 0.8
 
 
-    # Placeholder:
-    # 20% removal across all COD fractions
+    # For now:
+    # 20% removal of COD fractions
 
-    for cod_fraction in cod_fraction_analytes:
+    for cod_fraction in (
+        cod_fraction_analytes
+    ):
 
         output_stream.loc[
             0,
@@ -956,7 +1125,7 @@ def modelPrimary(
         ] *= 0.8
 
 
-    # Recalculate COD totals
+    # Recalculate derived COD
 
     output_stream.loc[
         0,
@@ -1016,14 +1185,16 @@ def modelPrimary(
 
 
     # -----------------------------------------------------
-    # PERFORMANCE RESULTS
+    # PERFORMANCE
     # -----------------------------------------------------
 
     performance_results = {
 
-        "Area (m²)": area,
+        "Area (m²)":
+            area,
 
-        "SOR (m/hr)": sor,
+        "SOR (m/hr)":
+            sor,
 
         "Benchmark SOR (m/hr)":
             benchmark_sor,
@@ -1040,7 +1211,7 @@ def modelPrimary(
 
 
 # =========================================================
-# 16. SECONDARY MODEL - PLACEHOLDER
+# 16. SECONDARY MODEL
 # =========================================================
 
 def modelSecondary(
@@ -1050,18 +1221,25 @@ def modelSecondary(
     modelling_constants
 ):
 
-    # =====================================================
-    # IMPORTANT
-    #
-    # Placeholder steady-state calculation only.
-    # We will replace/refine this later.
-    # =====================================================
 
+    # =====================================================
+    # STREAM OUTPUT
+    #
+    # Secondary currently passes stream concentrations
+    # through unchanged.
+    #
+    # The biomass / MLSS model below is currently used
+    # for PERFORMANCE assessment only.
+    # =====================================================
 
     output_stream = (
         combined_input_stream.copy()
     )
 
+
+    # -----------------------------------------------------
+    # INFLUENT
+    # -----------------------------------------------------
 
     flow = combined_input_stream.loc[
         0,
@@ -1070,14 +1248,23 @@ def modelSecondary(
 
 
     biodegradable_cod = (
+
         combined_input_stream.loc[
             0,
-            "Biodegradable COD"
+            "Soluble biodegradable COD"
+        ]
+
+        +
+
+        combined_input_stream.loc[
+            0,
+            "Particulate biodegradable COD"
         ]
     )
 
 
     particulate_non_biodegradable_cod = (
+
         combined_input_stream.loc[
             0,
             "Particulate non-biodegradable COD"
@@ -1085,40 +1272,81 @@ def modelSecondary(
     )
 
 
-    volume = system_data["Volume"]
+    influent_iss = (
 
-    srt = system_data["SRT"]
-
-    secondary_type = (
-        system_data["Secondary Type"]
+        combined_input_stream.loc[
+            0,
+            "ISS"
+        ]
     )
 
 
     # -----------------------------------------------------
-    # CONSTANTS
+    # SYSTEM DESIGN
     # -----------------------------------------------------
 
-    Yh = modelling_constants["Yh"]
+    volume = system_data[
+        "Volume"
+    ]
 
-    bH = modelling_constants["bH"]
+    srt = system_data[
+        "SRT"
+    ]
 
-    fh = modelling_constants["fh"]
-
-    fcv = modelling_constants["fcv"]
+    secondary_type = system_data[
+        "Secondary Type"
+    ]
 
 
     # -----------------------------------------------------
-    # PLACEHOLDER BIOMASS CALCULATIONS
+    # MODELLING CONSTANTS
     # -----------------------------------------------------
 
-    if (1 + bH * srt) > 0:
+    Yh = modelling_constants[
+        "Yh"
+    ]
+
+    bH = modelling_constants[
+        "bH"
+    ]
+
+    fh = modelling_constants[
+        "fh"
+    ]
+
+    fcv = modelling_constants[
+        "fcv"
+    ]
+
+    f_inert_biomass = (
+        modelling_constants[
+            "f_inert_biomass"
+        ]
+    )
+
+
+    # -----------------------------------------------------
+    # ACTIVE BIOMASS INVENTORY
+    # -----------------------------------------------------
+
+    if (
+        1 + bH * srt
+    ) != 0:
 
         mx_bh = (
+
             flow
+
             * biodegradable_cod
+
             * Yh
+
             * srt
-            / (1 + bH * srt)
+
+            / (
+                1
+                + bH * srt
+            )
         )
 
     else:
@@ -1126,40 +1354,92 @@ def modelSecondary(
         mx_bh = 0.0
 
 
+    # -----------------------------------------------------
+    # ENDOGENOUS BIOMASS / RESIDUE
+    # -----------------------------------------------------
+
     mx_eh = (
+
         mx_bh
+
         * fh
+
         * bH
+
         * srt
     )
 
 
+    # -----------------------------------------------------
+    # INERT PARTICULATE ORGANICS
+    # -----------------------------------------------------
+
     if fcv > 0:
 
-        mx_inert = (
+        mx_ii = (
+
             particulate_non_biodegradable_cod
+
             * flow
+
             / fcv
+
             * srt
         )
 
     else:
 
-        mx_inert = 0.0
+        mx_ii = 0.0
 
 
-    total_solids_mass = (
-        mx_bh
-        + mx_eh
-        + mx_inert
+    # -----------------------------------------------------
+    # INORGANIC SUSPENDED SOLIDS INVENTORY
+    # -----------------------------------------------------
+
+    mx_iss = (
+
+        influent_iss
+
+        * flow
+
+        * srt
+
+        +
+
+        f_inert_biomass
+
+        * mx_bh
     )
 
+
+    # -----------------------------------------------------
+    # TOTAL MLSS INVENTORY
+    # -----------------------------------------------------
+
+    total_tss_mass = (
+
+        mx_bh
+
+        + mx_eh
+
+        + mx_ii
+
+        + mx_iss
+    )
+
+
+    # -----------------------------------------------------
+    # MLSS CONCENTRATION
+    # -----------------------------------------------------
 
     if volume > 0:
 
         estimated_mlss = (
-            total_solids_mass
+
+            total_tss_mass
+
             / volume
+
             * 1000
         )
 
@@ -1169,12 +1449,13 @@ def modelSecondary(
 
 
     # -----------------------------------------------------
-    # CHOOSE BENCHMARK
+    # SELECT BENCHMARK
     # -----------------------------------------------------
 
     if secondary_type == "MBR":
 
         benchmark_mlss = (
+
             performance_benchmarks
             ["Secondary"]
             ["Max MLSS - MBR (mg/L)"]
@@ -1183,6 +1464,7 @@ def modelSecondary(
     else:
 
         benchmark_mlss = (
+
             performance_benchmarks
             ["Secondary"]
             ["Max MLSS - Conventional (mg/L)"]
@@ -1190,19 +1472,13 @@ def modelSecondary(
 
 
     status = classifyPerformance(
+
         estimated_mlss,
+
         benchmark_mlss,
+
         lower_is_better=True
     )
-
-
-    # -----------------------------------------------------
-    # STREAM IMPACT
-    # -----------------------------------------------------
-
-    # For now secondary has NO effect on the stream.
-    #
-    # We will replace this with the real process model later.
 
 
     # -----------------------------------------------------
@@ -1213,6 +1489,33 @@ def modelSecondary(
 
         "Secondary Type":
             secondary_type,
+
+        "Inlet Flow (ML/d)":
+            flow,
+
+        "Inlet Biodegradable COD (mg/L)":
+            biodegradable_cod,
+
+        "SRT (days)":
+            srt,
+
+        "Volume (m³)":
+            volume,
+
+        "Active Biomass MX_BH (kg)":
+            mx_bh,
+
+        "Endogenous Biomass MX_EH (kg)":
+            mx_eh,
+
+        "Inert Particulate Organics MX_II (kg)":
+            mx_ii,
+
+        "ISS Inventory MX_ISS (kg)":
+            mx_iss,
+
+        "Total TSS Inventory (kg)":
+            total_tss_mass,
 
         "Estimated MLSS (mg/L)":
             estimated_mlss,
@@ -1232,7 +1535,7 @@ def modelSecondary(
 
 
 # =========================================================
-# 17. TERTIARY MODEL - PLACEHOLDER
+# 17. TERTIARY MODEL
 # =========================================================
 
 def modelTertiary(
@@ -1241,6 +1544,7 @@ def modelTertiary(
     performance_benchmarks,
     modelling_constants
 ):
+
 
     output_stream = (
         combined_input_stream.copy()
@@ -1261,9 +1565,13 @@ def modelTertiary(
     if filter_area > 0:
 
         filtration_rate = (
+
             flow
+
             * 1000
+
             / 24
+
             / filter_area
         )
 
@@ -1273,6 +1581,7 @@ def modelTertiary(
 
 
     benchmark_rate = (
+
         performance_benchmarks
         ["Tertiary"]
         ["Filtration Rate (m/hr)"]
@@ -1280,8 +1589,11 @@ def modelTertiary(
 
 
     status = classifyPerformance(
+
         filtration_rate,
+
         benchmark_rate,
+
         lower_is_better=True
     )
 
@@ -1331,12 +1643,18 @@ st.header("Model Results")
 
 for index, system in ordered_systems.iterrows():
 
-    system_name = system["Name"]
+    system_name = system[
+        "Name"
+    ]
 
-    system_type = system["Type"]
+    system_type = system[
+        "Type"
+    ]
 
 
-    st.subheader(system_name)
+    st.subheader(
+        system_name
+    )
 
 
     # -----------------------------------------------------
@@ -1345,9 +1663,13 @@ for index, system in ordered_systems.iterrows():
 
     combined_input_stream = (
         calcCombinedStreamToSystem(
+
             system_name,
+
             pathways,
+
             nodes,
+
             analytes
         )
     )
@@ -1366,10 +1688,11 @@ for index, system in ordered_systems.iterrows():
 
 
     # -----------------------------------------------------
-    # SELECT CORRECT MODEL FUNCTION
+    # SELECT MODEL FUNCTION
     # -----------------------------------------------------
 
     model_function = (
+
         system_model_functions[
             system_type
         ]
@@ -1387,14 +1710,17 @@ for index, system in ordered_systems.iterrows():
     ) = model_function(
 
         system,
+
         combined_input_stream,
+
         performance_benchmarks,
+
         modelling_constants
     )
 
 
     # -----------------------------------------------------
-    # SAVE STREAM OUTPUT INTO NODES
+    # SAVE OUTPUT STREAM INTO NODES
     # -----------------------------------------------------
 
     nodes.loc[
@@ -1418,7 +1744,7 @@ for index, system in ordered_systems.iterrows():
 
 
     # -----------------------------------------------------
-    # DISPLAY OUTPUT STREAM
+    # DISPLAY STREAM OUTPUT
     # -----------------------------------------------------
 
     st.write(
@@ -1434,7 +1760,7 @@ for index, system in ordered_systems.iterrows():
 
 
     # -----------------------------------------------------
-    # DISPLAY THIS SYSTEM'S PERFORMANCE
+    # DISPLAY PERFORMANCE RESULTS
     # -----------------------------------------------------
 
     if performance_results:
@@ -1444,8 +1770,10 @@ for index, system in ordered_systems.iterrows():
         )
 
 
-        performance_df = pd.DataFrame(
-            [performance_results]
+        performance_df = (
+            pd.DataFrame(
+                [performance_results]
+            )
         )
 
 
@@ -1457,53 +1785,79 @@ for index, system in ordered_systems.iterrows():
 
 
     # -----------------------------------------------------
-    # ALSO BUILD SYSTEM-TYPE SUMMARY TABLES
+    # BUILD SYSTEM-TYPE PERFORMANCE SUMMARY
     # -----------------------------------------------------
 
     summary_row = {
-        "System": system_name,
+
+        "System":
+            system_name,
+
         **performance_results
     }
 
 
     if system_type == "Primary":
 
-        df_primary_performance_results = pd.concat(
-            [
-                df_primary_performance_results,
-                pd.DataFrame([summary_row])
-            ],
-            ignore_index=True
+        df_primary_performance_results = (
+            pd.concat(
+
+                [
+                    df_primary_performance_results,
+
+                    pd.DataFrame(
+                        [summary_row]
+                    )
+                ],
+
+                ignore_index=True
+            )
         )
 
 
     elif system_type == "Secondary":
 
-        df_secondary_performance_results = pd.concat(
-            [
-                df_secondary_performance_results,
-                pd.DataFrame([summary_row])
-            ],
-            ignore_index=True
+        df_secondary_performance_results = (
+            pd.concat(
+
+                [
+                    df_secondary_performance_results,
+
+                    pd.DataFrame(
+                        [summary_row]
+                    )
+                ],
+
+                ignore_index=True
+            )
         )
 
 
     elif system_type == "Tertiary":
 
-        df_tertiary_performance_results = pd.concat(
-            [
-                df_tertiary_performance_results,
-                pd.DataFrame([summary_row])
-            ],
-            ignore_index=True
+        df_tertiary_performance_results = (
+            pd.concat(
+
+                [
+                    df_tertiary_performance_results,
+
+                    pd.DataFrame(
+                        [summary_row]
+                    )
+                ],
+
+                ignore_index=True
+            )
         )
 
 
 # =========================================================
-# 20. PERFORMANCE SUMMARY
+# 20. PERFORMANCE ASSESSMENT SUMMARY
 # =========================================================
 
-st.header("Performance Assessment Summary")
+st.header(
+    "Performance Assessment Summary"
+)
 
 
 if not df_primary_performance_results.empty:
@@ -1549,7 +1903,9 @@ if not df_tertiary_performance_results.empty:
 # 21. FINAL NODE OUTPUTS
 # =========================================================
 
-st.header("Final Node Outputs")
+st.header(
+    "Final Node Outputs"
+)
 
 
 st.dataframe(
