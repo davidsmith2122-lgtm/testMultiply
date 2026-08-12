@@ -24,7 +24,7 @@ from model import (
     interpolate_adwf,
 )
 
-st.set_page_config(page_title="WWTP Model — Structural Mockup", layout="wide")
+st.set_page_config(page_title="WWTP Model — Structural Mockup test", layout="wide")
 st.title("Wastewater Treatment Model — Structural Mockup")
 st.caption("Placeholder calculations only. Purpose of this version: confirm the "
            "flow between systems and the overall UI layout before real equations go in.")
