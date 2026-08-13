@@ -205,9 +205,9 @@ with inputs_tab:
     # -----------------------------------------------------
     # PATHWAYS
     # -----------------------------------------------------
-
+    
     st.header("Pathways")
-
+    
     default_pathways = pd.DataFrame({
         "Source": [
             "Influent Source 1",
@@ -228,12 +228,34 @@ with inputs_tab:
             1.0
         ]
     })
-
+    
+    node_options = (
+        source_data.loc[source_data["Active"] == True, "Name"].tolist()
+        + primary_data.loc[primary_data["Active"] == True, "Name"].tolist()
+        + secondary_data.loc[secondary_data["Active"] == True, "Name"].tolist()
+        + tertiary_data.loc[tertiary_data["Active"] == True, "Name"].tolist()
+    )
+    
     pathways = st.data_editor(
         default_pathways,
         hide_index=True,
         num_rows="dynamic",
         width="stretch",
+        column_config={
+            "Source": st.column_config.SelectboxColumn(
+                "Source",
+                options=node_options
+            ),
+            "Destination": st.column_config.SelectboxColumn(
+                "Destination",
+                options=node_options
+            ),
+            "Proportion": st.column_config.NumberColumn(
+                "Proportion",
+                min_value=0.0,
+                max_value=1.0
+            )
+        },
         key="pathway_editor"
     )
 
