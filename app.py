@@ -1881,6 +1881,13 @@ if not df_secondary_performance_results.empty:
 
     st.dataframe(
         df_secondary_performance_results,
+        column_order=[
+            "System",
+            "SRT (days)",
+            "Estimated MLSS (mg/L)",
+            "Benchmark MLSS (mg/L)",
+            "Status"
+        ],
         hide_index=True,
         width="stretch"
     )
