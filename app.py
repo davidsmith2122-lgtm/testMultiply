@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 
 st.title("Simple Process Model")
 
-inputs_tab, constants_tab, results_tab, tlt_tab, spa_tab = st.tabs([
+inputs_tab, pfd_tab, constants_tab, results_tab, tlt_tab, spa_tab = st.tabs([
     "Inputs",
+    "Process Flow Diagram",
     "Constants",
     "Results",
     "Traffic Light Table",
@@ -177,7 +178,7 @@ with inputs_tab:
 
     default_tertiary_data = pd.DataFrame({
         "Name": ["Tertiary 1", "Tertiary 2", "Tertiary 3", "Tertiary 4"],
-        "Active": [False, False, False, False],
+        "Active": [True, False, False, False],
         "Type": ["Tertiary"] * 4,
         "Modelling Order Group": [3] * 4,
         "Modelling Order Specific": [1, 2, 3, 4],
@@ -208,9 +209,24 @@ with inputs_tab:
     st.header("Pathways")
 
     default_pathways = pd.DataFrame({
-        "Source": ["Influent Source 1", "Influent Source 2", "Primary 1"],
-        "Destination": ["Primary 1", "Primary 1", "Secondary 1"],
-        "Proportion": [1.0, 1.0, 1.0]
+        "Source": [
+            "Influent Source 1",
+            "Influent Source 2",
+            "Primary 1",
+            "Secondary 1"
+        ],
+        "Destination": [
+            "Primary 1",
+            "Primary 1",
+            "Secondary 1",
+            "Tertiary 1"
+        ],
+        "Proportion": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+        ]
     })
 
     pathways = st.data_editor(
@@ -656,7 +672,7 @@ def runModelForYear(year):
             **{analyte: 0.0 for analyte in analytes}
         }
 
-    # Run systems in modelling order
+    # Run systems
     for index, system in ordered_systems.iterrows():
 
         system_name = system["Name"]
@@ -754,7 +770,6 @@ for year in growth_forecast.index:
 
     forecast_rows.append(forecast_row)
 
-
 forecast_results = pd.DataFrame(forecast_rows)
 forecast_results = forecast_results.set_index("Year")
 
@@ -771,13 +786,13 @@ def trafficLightCell(value, benchmark):
     status = classifyPerformance(value, benchmark)
 
     if status == "PASS":
-        return "background-color: #2e7d32; color: white;"
+        return "background-color: #c8e6c9; color: black; font-weight: bold;"
 
     elif status == "CRITICAL":
-        return "background-color: #f9a825; color: black;"
+        return "background-color: #ffe082; color: black; font-weight: bold;"
 
     else:
-        return "background-color: #c62828; color: white;"
+        return "background-color: #ef9a9a; color: black; font-weight: bold;"
 
 
 def getBenchmarkForForecastColumn(column_name):
@@ -820,6 +835,65 @@ for column in forecast_results.columns:
             lambda value, benchmark=benchmark: trafficLightCell(value, benchmark),
             subset=[column]
         )
+
+
+# =========================================================
+# PROCESS FLOW DIAGRAM TAB
+# =========================================================
+
+with pfd_tab:
+
+    st.header("Process Flow Diagram")
+    st.caption(f"Active process configuration for model year {model_year}.")
+
+    dot = """
+    digraph ProcessFlow {
+        rankdir=LR;
+        graph [bgcolor="transparent", pad="0.4", nodesep="0.8", ranksep="1.0"];
+        node [shape=box, style="rounded,filled", fontname="Arial", fontsize=12, margin="0.20,0.12"];
+        edge [fontname="Arial", fontsize=10, arrowsize=0.8];
+    """
+
+    for node_name, node_data in nodes.iterrows():
+
+        node_type = node_data["Type"]
+
+        if node_type == "Influent Source":
+            fill_colour = "#dbeafe"
+        elif node_type == "Primary":
+            fill_colour = "#fef3c7"
+        elif node_type == "Secondary":
+            fill_colour = "#dcfce7"
+        elif node_type == "Tertiary":
+            fill_colour = "#ede9fe"
+        else:
+            fill_colour = "#f3f4f6"
+
+        label = f'{node_name}\\n{node_data["Flow"]:.2f} ML/d'
+
+        dot += (
+            f'"{node_name}" '
+            f'[label="{label}", fillcolor="{fill_colour}", fontcolor="black"];\n'
+        )
+
+    for index, pathway in pathways.iterrows():
+
+        source = pathway["Source"]
+        destination = pathway["Destination"]
+        proportion = pathway["Proportion"]
+
+        if source in nodes.index and destination in nodes.index:
+            dot += (
+                f'"{source}" -> "{destination}" '
+                f'[label="{proportion * 100:.0f}%"];\n'
+            )
+
+    dot += "}"
+
+    st.graphviz_chart(
+        dot,
+        width="stretch"
+    )
 
 
 # =========================================================
