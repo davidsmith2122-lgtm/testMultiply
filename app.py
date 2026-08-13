@@ -10,10 +10,11 @@ import matplotlib.pyplot as plt
 
 st.title("Simple Process Model")
 
-inputs_tab, constants_tab, results_tab, spa_tab = st.tabs([
+inputs_tab, constants_tab, results_tab, tlt_tab, spa_tab = st.tabs([
     "Inputs",
     "Constants",
     "Results",
+    "Traffic Light Table",
     "State Point Analysis"
 ])
 
@@ -86,7 +87,6 @@ with inputs_tab:
             default_growth_forecast[source_name] = 0.0
 
     with st.expander("Growth Forecast"):
-
         st.caption("Average dry weather flow by influent source (ML/d)")
 
         growth_forecast_editor = st.data_editor(
@@ -318,7 +318,7 @@ with constants_tab:
 
 
 # =========================================================
-# BACKEND MODEL SETUP
+# BACKEND SETUP
 # =========================================================
 
 source_data["Biodegradable COD"] = (
@@ -335,7 +335,6 @@ source_data["Total COD"] = (
     source_data["Biodegradable COD"]
     + source_data["Non-biodegradable COD"]
 )
-
 
 cod_fraction_analytes = [
     "Soluble biodegradable COD",
@@ -362,7 +361,6 @@ other_analytes = [
 
 analytes = other_analytes + cod_fraction_analytes + derived_cod_analytes
 
-
 systems = pd.concat(
     [primary_data, secondary_data, tertiary_data],
     ignore_index=True
@@ -376,66 +374,7 @@ ordered_systems = systems.sort_values(
 
 
 # =========================================================
-# NODES
-# =========================================================
-
-node_columns = ["Type", "Active", "Flow"] + analytes
-nodes = pd.DataFrame(columns=node_columns)
-
-
-for index, row in source_data.iterrows():
-
-    if row["Active"] == True:
-
-        source_name = row["Name"]
-
-        if source_name in growth_forecast.columns:
-            source_flow = growth_forecast.loc[model_year, source_name]
-        else:
-            source_flow = 0.0
-
-        nodes.loc[source_name] = {
-            "Type": "Influent Source",
-            "Active": True,
-            "Flow": source_flow,
-            "TSS": row["TSS"],
-            "ISS": row["ISS"],
-            "TN": row["TN"],
-            "TP": row["TP"],
-            "NH4": row["NH4"],
-            "NO3": row["NO3"],
-            "PO4": row["PO4"],
-            "Soluble biodegradable COD": row["Soluble biodegradable COD"],
-            "Particulate biodegradable COD": row["Particulate biodegradable COD"],
-            "Soluble non-biodegradable COD": row["Soluble non-biodegradable COD"],
-            "Particulate non-biodegradable COD": row["Particulate non-biodegradable COD"],
-            "Biodegradable COD": row["Biodegradable COD"],
-            "Non-biodegradable COD": row["Non-biodegradable COD"],
-            "Total COD": row["Total COD"]
-        }
-
-
-for index, row in ordered_systems.iterrows():
-
-    nodes.loc[row["Name"]] = {
-        "Type": row["Type"],
-        "Active": True,
-        "Flow": 0.0,
-        **{analyte: 0.0 for analyte in analytes}
-    }
-
-
-# =========================================================
-# PERFORMANCE RESULT DATAFRAMES
-# =========================================================
-
-df_primary_performance_results = pd.DataFrame()
-df_secondary_performance_results = pd.DataFrame()
-df_tertiary_performance_results = pd.DataFrame()
-
-
-# =========================================================
-# FUNCTIONS
+# GENERAL FUNCTIONS
 # =========================================================
 
 def classifyPerformance(actual_value, benchmark, lower_is_better=True):
@@ -480,14 +419,12 @@ def calcCombinedStreamToSystem(system_name, pathways, nodes, analytes):
     total_flow = incoming_streams["Adjusted Flow"].sum()
 
     if total_flow > 0:
-
         weighted_concentrations = (
             incoming_streams[analytes]
             .multiply(incoming_streams["Adjusted Flow"], axis=0)
             .sum()
             / total_flow
         )
-
     else:
         weighted_concentrations = pd.Series(0.0, index=analytes)
 
@@ -506,12 +443,11 @@ def modelPrimary(system_data, combined_input_stream, performance_benchmarks, mod
     length = system_data["Length"]
     width = system_data["Width"]
     area = length * width
-
     flow = combined_input_stream.loc[0, "Flow"]
 
     sor = flow * 1000 / 24 / area if area > 0 else 0.0
     benchmark_sor = performance_benchmarks["Primary"]["SOR (m/hr)"]
-    status = classifyPerformance(sor, benchmark_sor, lower_is_better=True)
+    status = classifyPerformance(sor, benchmark_sor)
 
     output_stream = combined_input_stream.copy()
 
@@ -591,7 +527,6 @@ def modelSecondary(system_data, combined_input_stream, performance_benchmarks, m
     )
 
     mx_iss = influent_iss * flow * srt + f_inert_biomass * mx_bh
-
     total_tss_mass = mx_bh + mx_eh + mx_ii + mx_iss
 
     estimated_mlss = (
@@ -605,11 +540,7 @@ def modelSecondary(system_data, combined_input_stream, performance_benchmarks, m
     else:
         benchmark_mlss = performance_benchmarks["Secondary"]["Max MLSS - Conventional (mg/L)"]
 
-    status = classifyPerformance(
-        estimated_mlss,
-        benchmark_mlss,
-        lower_is_better=True
-    )
+    status = classifyPerformance(estimated_mlss, benchmark_mlss)
 
     performance_results = {
         "Secondary Type": secondary_type,
@@ -648,12 +579,7 @@ def modelTertiary(system_data, combined_input_stream, performance_benchmarks, mo
     )
 
     benchmark_rate = performance_benchmarks["Tertiary"]["Filtration Rate (m/hr)"]
-
-    status = classifyPerformance(
-        filtration_rate,
-        benchmark_rate,
-        lower_is_better=True
-    )
+    status = classifyPerformance(filtration_rate, benchmark_rate)
 
     performance_results = {
         "Filtration Rate (m/hr)": filtration_rate,
@@ -676,59 +602,223 @@ system_model_functions = {
 
 
 # =========================================================
-# RUN MODEL
+# RUN MODEL FOR ONE YEAR
 # =========================================================
 
-for index, system in ordered_systems.iterrows():
+def runModelForYear(year):
 
-    system_name = system["Name"]
-    system_type = system["Type"]
+    node_columns = ["Type", "Active", "Flow"] + analytes
+    nodes = pd.DataFrame(columns=node_columns)
 
-    combined_input_stream = calcCombinedStreamToSystem(
-        system_name,
-        pathways,
-        nodes,
-        analytes
-    )
+    primary_results = pd.DataFrame()
+    secondary_results = pd.DataFrame()
+    tertiary_results = pd.DataFrame()
 
-    model_function = system_model_functions[system_type]
+    # Build influent source nodes
+    for index, row in source_data.iterrows():
 
-    output_stream, performance_results = model_function(
-        system,
-        combined_input_stream,
-        performance_benchmarks,
-        modelling_constants
-    )
+        if row["Active"] == True:
 
-    nodes.loc[system_name, "Flow"] = output_stream.loc[0, "Flow"]
+            source_name = row["Name"]
 
-    for analyte in analytes:
-        nodes.loc[system_name, analyte] = output_stream.loc[0, analyte]
+            if source_name in growth_forecast.columns:
+                source_flow = growth_forecast.loc[year, source_name]
+            else:
+                source_flow = 0.0
 
-    summary_row = {
-        "System": system_name,
-        **performance_results
+            nodes.loc[source_name] = {
+                "Type": "Influent Source",
+                "Active": True,
+                "Flow": source_flow,
+                "TSS": row["TSS"],
+                "ISS": row["ISS"],
+                "TN": row["TN"],
+                "TP": row["TP"],
+                "NH4": row["NH4"],
+                "NO3": row["NO3"],
+                "PO4": row["PO4"],
+                "Soluble biodegradable COD": row["Soluble biodegradable COD"],
+                "Particulate biodegradable COD": row["Particulate biodegradable COD"],
+                "Soluble non-biodegradable COD": row["Soluble non-biodegradable COD"],
+                "Particulate non-biodegradable COD": row["Particulate non-biodegradable COD"],
+                "Biodegradable COD": row["Biodegradable COD"],
+                "Non-biodegradable COD": row["Non-biodegradable COD"],
+                "Total COD": row["Total COD"]
+            }
+
+    # Add empty system nodes
+    for index, row in ordered_systems.iterrows():
+
+        nodes.loc[row["Name"]] = {
+            "Type": row["Type"],
+            "Active": True,
+            "Flow": 0.0,
+            **{analyte: 0.0 for analyte in analytes}
+        }
+
+    # Run systems in modelling order
+    for index, system in ordered_systems.iterrows():
+
+        system_name = system["Name"]
+        system_type = system["Type"]
+
+        combined_input_stream = calcCombinedStreamToSystem(
+            system_name,
+            pathways,
+            nodes,
+            analytes
+        )
+
+        model_function = system_model_functions[system_type]
+
+        output_stream, performance_results = model_function(
+            system,
+            combined_input_stream,
+            performance_benchmarks,
+            modelling_constants
+        )
+
+        nodes.loc[system_name, "Flow"] = output_stream.loc[0, "Flow"]
+
+        for analyte in analytes:
+            nodes.loc[system_name, analyte] = output_stream.loc[0, analyte]
+
+        summary_row = {
+            "System": system_name,
+            **performance_results
+        }
+
+        if system_type == "Primary":
+            primary_results = pd.concat(
+                [primary_results, pd.DataFrame([summary_row])],
+                ignore_index=True
+            )
+
+        elif system_type == "Secondary":
+            secondary_results = pd.concat(
+                [secondary_results, pd.DataFrame([summary_row])],
+                ignore_index=True
+            )
+
+        elif system_type == "Tertiary":
+            tertiary_results = pd.concat(
+                [tertiary_results, pd.DataFrame([summary_row])],
+                ignore_index=True
+            )
+
+    return nodes, primary_results, secondary_results, tertiary_results
+
+
+# =========================================================
+# RUN SELECTED-YEAR SNAPSHOT
+# =========================================================
+
+(
+    nodes,
+    df_primary_performance_results,
+    df_secondary_performance_results,
+    df_tertiary_performance_results
+) = runModelForYear(model_year)
+
+
+# =========================================================
+# RUN FULL GROWTH FORECAST
+# =========================================================
+
+forecast_rows = []
+
+for year in growth_forecast.index:
+
+    (
+        forecast_nodes,
+        forecast_primary_results,
+        forecast_secondary_results,
+        forecast_tertiary_results
+    ) = runModelForYear(year)
+
+    forecast_row = {
+        "Year": int(year)
     }
 
-    if system_type == "Primary":
+    for index, row in forecast_primary_results.iterrows():
+        column_name = f'{row["System"]} - SOR (m/hr)'
+        forecast_row[column_name] = row["SOR (m/hr)"]
 
-        df_primary_performance_results = pd.concat(
-            [df_primary_performance_results, pd.DataFrame([summary_row])],
-            ignore_index=True
-        )
+    for index, row in forecast_secondary_results.iterrows():
+        column_name = f'{row["System"]} - MLSS (mg/L)'
+        forecast_row[column_name] = row["Estimated MLSS (mg/L)"]
 
-    elif system_type == "Secondary":
+    for index, row in forecast_tertiary_results.iterrows():
+        column_name = f'{row["System"]} - Filtration Rate (m/hr)'
+        forecast_row[column_name] = row["Filtration Rate (m/hr)"]
 
-        df_secondary_performance_results = pd.concat(
-            [df_secondary_performance_results, pd.DataFrame([summary_row])],
-            ignore_index=True
-        )
+    forecast_rows.append(forecast_row)
 
-    elif system_type == "Tertiary":
 
-        df_tertiary_performance_results = pd.concat(
-            [df_tertiary_performance_results, pd.DataFrame([summary_row])],
-            ignore_index=True
+forecast_results = pd.DataFrame(forecast_rows)
+forecast_results = forecast_results.set_index("Year")
+
+
+# =========================================================
+# TRAFFIC LIGHT FORMATTING
+# =========================================================
+
+def trafficLightCell(value, benchmark):
+
+    if pd.isna(value):
+        return ""
+
+    status = classifyPerformance(value, benchmark)
+
+    if status == "PASS":
+        return "background-color: #2e7d32; color: white;"
+
+    elif status == "CRITICAL":
+        return "background-color: #f9a825; color: black;"
+
+    else:
+        return "background-color: #c62828; color: white;"
+
+
+def getBenchmarkForForecastColumn(column_name):
+
+    system_name, metric = column_name.split(" - ", 1)
+
+    if metric == "SOR (m/hr)":
+        return performance_benchmarks["Primary"]["SOR (m/hr)"]
+
+    elif metric == "MLSS (mg/L)":
+
+        matching_system = secondary_data[
+            secondary_data["Name"] == system_name
+        ]
+
+        if matching_system.empty:
+            return None
+
+        secondary_type = matching_system.iloc[0]["Secondary Type"]
+
+        if secondary_type == "MBR":
+            return performance_benchmarks["Secondary"]["Max MLSS - MBR (mg/L)"]
+        else:
+            return performance_benchmarks["Secondary"]["Max MLSS - Conventional (mg/L)"]
+
+    elif metric == "Filtration Rate (m/hr)":
+        return performance_benchmarks["Tertiary"]["Filtration Rate (m/hr)"]
+
+    return None
+
+
+styled_forecast_results = forecast_results.style.format("{:.2f}")
+
+for column in forecast_results.columns:
+
+    benchmark = getBenchmarkForForecastColumn(column)
+
+    if benchmark is not None:
+        styled_forecast_results = styled_forecast_results.map(
+            lambda value, benchmark=benchmark: trafficLightCell(value, benchmark),
+            subset=[column]
         )
 
 
@@ -744,10 +834,8 @@ with results_tab:
 
     st.subheader("Modelled Influent Flows")
 
-    selected_flows = growth_forecast.loc[[model_year]]
-
     st.dataframe(
-        selected_flows,
+        growth_forecast.loc[[model_year]],
         width="stretch"
     )
 
@@ -812,8 +900,33 @@ with results_tab:
 
 
 # =========================================================
+# TRAFFIC LIGHT TABLE TAB
+# =========================================================
+
+with tlt_tab:
+
+    st.header("Traffic Light Table")
+
+    st.caption(
+        "Forecast performance from 2026–2056. "
+        "Green = below 90% of benchmark, amber = within 10% of benchmark, red = benchmark exceeded."
+    )
+
+    if not forecast_results.empty:
+
+        st.dataframe(
+            styled_forecast_results,
+            width="stretch"
+        )
+
+    else:
+
+        st.info("No forecast results available.")
+
+
+# =========================================================
 # STATE POINT ANALYSIS TAB
-# COMPLETELY STANDALONE FOR NOW
+# COMPLETELY STANDALONE
 # =========================================================
 
 with spa_tab:
@@ -949,9 +1062,13 @@ with spa_tab:
     )
 
     if spa_SHC2:
-        st.success("SHC2 satisfied: overflow flux at MLSS is below the gravity flux.")
+        st.success(
+            "SHC2 satisfied: overflow flux at MLSS is below the gravity flux."
+        )
     else:
-        st.error("SHC2 not satisfied: overflow flux at MLSS exceeds the gravity flux.")
+        st.error(
+            "SHC2 not satisfied: overflow flux at MLSS exceeds the gravity flux."
+        )
 
     # -----------------------------------------------------
     # SPA PLOT
