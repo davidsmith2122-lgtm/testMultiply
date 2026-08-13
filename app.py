@@ -794,14 +794,14 @@ with spa_tab:
         spa_SVI = st.number_input(
             "SVI (mL/g)",
             min_value=0.0,
-            value=150.0,
+            value=80.0,
             key="spa_SVI"
         )
 
         spa_max_mlss = st.number_input(
             "Maximum concentration shown (kg/m³)",
             min_value=1.0,
-            value=20.0,
+            value=16.0,
             key="spa_max_mlss"
         )
 
