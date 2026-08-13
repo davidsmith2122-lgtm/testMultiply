@@ -25,6 +25,20 @@ inputs_tab, constants_tab, results_tab, spa_tab = st.tabs([
 with inputs_tab:
 
     # -----------------------------------------------------
+    # MODELLING YEAR
+    # -----------------------------------------------------
+
+    st.header("Modelling Year")
+
+    forecast_years = list(range(2026, 2057))
+
+    model_year = st.selectbox(
+        "Select year to model",
+        options=forecast_years,
+        index=0
+    )
+
+    # -----------------------------------------------------
     # INFLUENT SOURCES
     # -----------------------------------------------------
 
@@ -33,7 +47,6 @@ with inputs_tab:
     default_source_data = pd.DataFrame({
         "Name": ["Influent Source 1", "Influent Source 2", "Influent Source 3", "Influent Source 4"],
         "Active": [True, True, False, False],
-        "Flow": [10.0, 10.0, 0.0, 0.0],
         "TSS": [200.0, 100.0, 0.0, 0.0],
         "ISS": [40.0, 30.0, 0.0, 0.0],
         "TN": [40.0, 30.0, 0.0, 0.0],
@@ -54,6 +67,39 @@ with inputs_tab:
         width="stretch",
         key="source_editor"
     )
+
+    # -----------------------------------------------------
+    # GROWTH FORECAST
+    # -----------------------------------------------------
+
+    source_names = source_data["Name"].dropna().tolist()
+
+    default_growth_forecast = pd.DataFrame(index=forecast_years)
+    default_growth_forecast.index.name = "Year"
+
+    for source_name in source_names:
+        if source_name == "Influent Source 1":
+            default_growth_forecast[source_name] = np.linspace(10.0, 18.0, len(forecast_years))
+        elif source_name == "Influent Source 2":
+            default_growth_forecast[source_name] = np.linspace(10.0, 14.0, len(forecast_years))
+        else:
+            default_growth_forecast[source_name] = 0.0
+
+    with st.expander("Growth Forecast"):
+
+        st.caption("Average dry weather flow by influent source (ML/d)")
+
+        growth_forecast_editor = st.data_editor(
+            default_growth_forecast.reset_index(),
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "Year": st.column_config.NumberColumn(disabled=True)
+            },
+            key="growth_forecast_editor"
+        )
+
+    growth_forecast = growth_forecast_editor.set_index("Year")
 
     # -----------------------------------------------------
     # PRIMARY SYSTEMS
@@ -131,7 +177,7 @@ with inputs_tab:
 
     default_tertiary_data = pd.DataFrame({
         "Name": ["Tertiary 1", "Tertiary 2", "Tertiary 3", "Tertiary 4"],
-        "Active": [True, False, False, False],
+        "Active": [False, False, False, False],
         "Type": ["Tertiary"] * 4,
         "Modelling Order Group": [3] * 4,
         "Modelling Order Specific": [1, 2, 3, 4],
@@ -162,9 +208,9 @@ with inputs_tab:
     st.header("Pathways")
 
     default_pathways = pd.DataFrame({
-        "Source": ["Influent Source 1", "Influent Source 2", "Primary 1","Secondary 1"],
-        "Destination": ["Primary 1", "Primary 1", "Secondary 1", "Tertiary 1"],
-        "Proportion": [1.0, 1.0, 1.0,1.0]
+        "Source": ["Influent Source 1", "Influent Source 2", "Primary 1"],
+        "Destination": ["Primary 1", "Primary 1", "Secondary 1"],
+        "Proportion": [1.0, 1.0, 1.0]
     })
 
     pathways = st.data_editor(
@@ -229,8 +275,10 @@ with constants_tab:
 
     for index, row in benchmark_data.iterrows():
         system_type = row["System Type"]
+
         if system_type not in performance_benchmarks:
             performance_benchmarks[system_type] = {}
+
         performance_benchmarks[system_type][row["Criterion"]] = row["Benchmark"]
 
     # -----------------------------------------------------
@@ -273,8 +321,6 @@ with constants_tab:
 # BACKEND MODEL SETUP
 # =========================================================
 
-# Derived COD values
-
 source_data["Biodegradable COD"] = (
     source_data["Soluble biodegradable COD"]
     + source_data["Particulate biodegradable COD"]
@@ -290,8 +336,6 @@ source_data["Total COD"] = (
     + source_data["Non-biodegradable COD"]
 )
 
-
-# Analytes
 
 cod_fraction_analytes = [
     "Soluble biodegradable COD",
@@ -319,8 +363,6 @@ other_analytes = [
 analytes = other_analytes + cod_fraction_analytes + derived_cod_analytes
 
 
-# Combine systems and determine modelling order
-
 systems = pd.concat(
     [primary_data, secondary_data, tertiary_data],
     ignore_index=True
@@ -340,16 +382,22 @@ ordered_systems = systems.sort_values(
 node_columns = ["Type", "Active", "Flow"] + analytes
 nodes = pd.DataFrame(columns=node_columns)
 
+
 for index, row in source_data.iterrows():
 
     if row["Active"] == True:
 
         source_name = row["Name"]
 
+        if source_name in growth_forecast.columns:
+            source_flow = growth_forecast.loc[model_year, source_name]
+        else:
+            source_flow = 0.0
+
         nodes.loc[source_name] = {
             "Type": "Influent Source",
             "Active": True,
-            "Flow": row["Flow"],
+            "Flow": source_flow,
             "TSS": row["TSS"],
             "ISS": row["ISS"],
             "TN": row["TN"],
@@ -365,6 +413,7 @@ for index, row in source_data.iterrows():
             "Non-biodegradable COD": row["Non-biodegradable COD"],
             "Total COD": row["Total COD"]
         }
+
 
 for index, row in ordered_systems.iterrows():
 
@@ -410,7 +459,9 @@ def classifyPerformance(actual_value, benchmark, lower_is_better=True):
 
 def calcCombinedStreamToSystem(system_name, pathways, nodes, analytes):
 
-    incoming_pathways = pathways[pathways["Destination"] == system_name].copy()
+    incoming_pathways = pathways[
+        pathways["Destination"] == system_name
+    ].copy()
 
     incoming_streams = incoming_pathways.merge(
         nodes,
@@ -455,6 +506,7 @@ def modelPrimary(system_data, combined_input_stream, performance_benchmarks, mod
     length = system_data["Length"]
     width = system_data["Width"]
     area = length * width
+
     flow = combined_input_stream.loc[0, "Flow"]
 
     sor = flow * 1000 / 24 / area if area > 0 else 0.0
@@ -463,7 +515,6 @@ def modelPrimary(system_data, combined_input_stream, performance_benchmarks, mod
 
     output_stream = combined_input_stream.copy()
 
-    # Placeholder primary removal
     output_stream.loc[0, "TSS"] *= 0.8
 
     for cod_fraction in cod_fraction_analytes:
@@ -687,6 +738,19 @@ for index, system in ordered_systems.iterrows():
 
 with results_tab:
 
+    st.header("Model Results")
+
+    st.write(f"**Modelled Year: {model_year}**")
+
+    st.subheader("Modelled Influent Flows")
+
+    selected_flows = growth_forecast.loc[[model_year]]
+
+    st.dataframe(
+        selected_flows,
+        width="stretch"
+    )
+
     st.header("Performance Assessment Summary")
 
     if not df_primary_performance_results.empty:
@@ -794,14 +858,14 @@ with spa_tab:
         spa_SVI = st.number_input(
             "SVI (mL/g)",
             min_value=0.0,
-            value=80.0,
+            value=150.0,
             key="spa_SVI"
         )
 
         spa_max_mlss = st.number_input(
             "Maximum concentration shown (kg/m³)",
             min_value=1.0,
-            value=16.0,
+            value=20.0,
             key="spa_max_mlss"
         )
 
@@ -827,16 +891,9 @@ with spa_tab:
 
     spa_j_state_point = spa_vi * spa_MLSS
     spa_j_overflowAtMLSS = spa_vi * spa_MLSS
-    spa_j_gravityAtMLSS = (
-        spa_v0
-        * np.exp(-spa_p_hin * spa_MLSS)
-        * spa_MLSS
-    )
+    spa_j_gravityAtMLSS = spa_v0 * np.exp(-spa_p_hin * spa_MLSS) * spa_MLSS
 
-    spa_SHC2 = (
-        spa_j_overflowAtMLSS
-        < spa_j_gravityAtMLSS
-    )
+    spa_SHC2 = spa_j_overflowAtMLSS < spa_j_gravityAtMLSS
 
     spa_underflow_concentration = (
         spa_j_tap / spa_vr
@@ -880,11 +937,7 @@ with spa_tab:
             f"{spa_p_hin:.3f}",
             f"{spa_j_overflowAtMLSS:.3f} kg/m².hr",
             f"{spa_j_gravityAtMLSS:.3f} kg/m².hr",
-            (
-                f"{spa_underflow_concentration:.2f} kg/m³"
-                if not np.isnan(spa_underflow_concentration)
-                else "N/A"
-            ),
+            f"{spa_underflow_concentration:.2f} kg/m³" if not np.isnan(spa_underflow_concentration) else "N/A",
             "PASS" if spa_SHC2 else "FAIL"
         ]
     })
@@ -908,23 +961,9 @@ with spa_tab:
 
     fig, ax = plt.subplots(figsize=(8, 6))
 
-    ax.plot(
-        spa_x_range,
-        spa_j_grav,
-        label="Gravity Flux"
-    )
-
-    ax.plot(
-        spa_x_range,
-        spa_j_over,
-        label="Overflow"
-    )
-
-    ax.plot(
-        spa_x_range,
-        spa_j_under,
-        label="Underflow"
-    )
+    ax.plot(spa_x_range, spa_j_grav, label="Gravity Flux")
+    ax.plot(spa_x_range, spa_j_over, label="Overflow")
+    ax.plot(spa_x_range, spa_j_under, label="Underflow")
 
     ax.scatter(
         spa_MLSS,
