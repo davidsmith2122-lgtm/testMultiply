@@ -131,7 +131,7 @@ with inputs_tab:
 
     default_tertiary_data = pd.DataFrame({
         "Name": ["Tertiary 1", "Tertiary 2", "Tertiary 3", "Tertiary 4"],
-        "Active": [False, False, False, False],
+        "Active": [True, False, False, False],
         "Type": ["Tertiary"] * 4,
         "Modelling Order Group": [3] * 4,
         "Modelling Order Specific": [1, 2, 3, 4],
@@ -162,9 +162,9 @@ with inputs_tab:
     st.header("Pathways")
 
     default_pathways = pd.DataFrame({
-        "Source": ["Influent Source 1", "Influent Source 2", "Primary 1"],
-        "Destination": ["Primary 1", "Primary 1", "Secondary 1"],
-        "Proportion": [1.0, 1.0, 1.0]
+        "Source": ["Influent Source 1", "Influent Source 2", "Primary 1","Secondary 1"],
+        "Destination": ["Primary 1", "Primary 1", "Secondary 1", "Tertiary 1"],
+        "Proportion": [1.0, 1.0, 1.0,1.0]
     })
 
     pathways = st.data_editor(
